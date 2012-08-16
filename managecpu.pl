@@ -36,12 +36,10 @@ $SIG{INT} = $SIG{TERM} = sub { emergency($fork, $pid) };
 
 if ($fork->start == 0) {
 
-    my $ppid = $$;
-    print "pid = $ppid\n";
-    
-    my $group        = File::Spec->catfile($MCPU_DIR, $pid);
-    my $tasks        = File::Spec->catfile($group, "tasks");
-    my $cfs_quota_us = File::Spec->catfile($group, "cpu.cfs_quota_us");
+    my $ppid            = $$;
+    my $group           = File::Spec->catfile($MCPU_DIR, $pid);
+    my $tasks           = File::Spec->catfile($group, "tasks");
+    my $cfs_quota_us    = File::Spec->catfile($group, "cpu.cfs_quota_us");
 
     mkdir $group;
     system("echo $ppid > $tasks");
