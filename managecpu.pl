@@ -22,22 +22,22 @@ my $croot        = File::Spec->catfile("/sys", "fs", "cgroup", "cpu");
 
 die "CFS not suppport" if ! -d $croot;
 
-our $MCPU_DIR     = File::Spec->catfile($croot, "cpu_manage");
-our $TASKS        = File::Spec->catfile($MCPU_DIR, "tasks");
-our $CFS_QUOTA_US = File::Spec->catfile($MCPU_DIR, "cpu.cfs_quota_us");
-
 my $fork         = new Parallel::ForkManager(1);
 my $command      = join " ", @ARGV;
+my $pid          = $$;
 
 die "argv not found" if $command eq "";
+
+our $MCPU_DIR     = File::Spec->catfile($croot, "cpu_manage", $pid);
+our $TASKS        = File::Spec->catfile($MCPU_DIR, "tasks");
+our $CFS_QUOTA_US = File::Spec->catfile($MCPU_DIR, "cpu.cfs_quota_us");
 
 mkdir $MCPU_DIR if ! -d $MCPU_DIR;
 
 while ($fork->start) {
-    my $pid = $$;
-    print "pid = $pid\n";
+#    print "pid = $pid\n";
     
-    $SIG{INT} = $SIG{TERM} = sub { emergency($pid) };
+    $SIG{INT} = $SIG{TERM} = sub { emergency($fork, $pid) };
     
     mkdir File::Spec->catfile($MCPU_DIR, $pid);
     system("echo $pid > $TASKS");
@@ -58,7 +58,8 @@ sub cleanup {
 }
 
 sub emergency {
-    my $pid = shift;
+    my ($fork, $pid) = @_;
+    $fork->finish;
     rmdir File::Spec->catfile($MCPU_DIR, $pid);
     exit 1;
 }
