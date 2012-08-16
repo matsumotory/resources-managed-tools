@@ -6,6 +6,7 @@ use Parallel::ForkManager;
 use File::Spec;
 use Getopt::Long;
 use Pod::Usage;
+use Scalar::Util qw/looks_like_number/;
 
 our $VERSION = "0.0.1";
 
@@ -16,13 +17,15 @@ GetOptions (
 
 $version and do { print "managecpu.pl: $VERSION\n"; exit 0 };
 pod2usage(1) if $help;
+looks_like_number($ARGV[0]) or die "argv0 is not num";
 
-# change cpu rate if you want
-my $cpu_rate     = 50000;
+# default rate is 50 %. Change cpu rate if you want
+my $cpu_rate     = $ARGV[0] * 1000;
 my $croot        = File::Spec->catfile("/sys", "fs", "cgroup", "cpu");
 
 die "CFS not suppport" if ! -d $croot;
 
+shift @ARGV;
 my $pid          = $$;
 my $fork         = new Parallel::ForkManager(2);
 my $command      = join " ", @ARGV;

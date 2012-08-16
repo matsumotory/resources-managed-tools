@@ -40,6 +40,7 @@ my $group           = File::Spec->catfile($MCPU_DIR, $pid);
 my $cpu_rate        = (defined $change_rate)    ?   $change_rate * 1000     :   $default_rate;
 my $type            = ($change_rate == 0)       ?   "unset"                 :   "change";
 
+$SIG{INT} = $SIG{TERM} = sub { cleanup($group) };
 $method_map->{$type}->($pid, $group, $cpu_rate);
 
 exit 0;
@@ -49,7 +50,7 @@ sub unset {
     my ($pid, $group)   = @_;
     my $root_task       = File::Spec->catfile($croot, "tasks");
 
-    system("echo $pid > $root_task");
+    cleanup($group) if system("echo $pid > $root_task");
     rmdir $group;
 }
 
@@ -60,8 +61,14 @@ sub change {
     my $cfs_quota_us    = File::Spec->catfile($group, "cpu.cfs_quota_us");
 
     mkdir $group if ! -d $group;
-    system("echo $pid > $tasks");
-    system("echo $cpu_rate > $cfs_quota_us");
+    cleanup($group) if system("echo $pid > $tasks");
+    cleanup($group) if system("echo $cpu_rate > $cfs_quota_us");
+}
+
+sub cleanup {
+    my $group = shift;
+    rmdir $group;
+    exit 1;
 }
 
 __END__
