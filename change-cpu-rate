@@ -1,0 +1,95 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use Parallel::ForkManager;
+use File::Spec;
+use Getopt::Long;
+use Pod::Usage;
+
+our $VERSION = "0.0.1";
+
+GetOptions (
+    'h|help'    => \my $help,
+    'v|version' => \my $version,
+    'r|rate=s'  => \my $change_rate,
+    'p|pid=s'   => \my $pid,
+) or pod2usage(2);
+
+my $method_map = {
+
+    unset   => \&unset,
+    change  => \&change,
+
+};
+
+$version and do { print "change-cpu-rate: $VERSION\n"; exit 0 };
+pod2usage(1) if $help;
+die "set pid and rate not found." if !defined $change_rate || !defined $pid;
+
+# default cpu rate
+my $default_rate     = 100000;
+my $croot        = File::Spec->catfile("/sys", "fs", "cgroup", "cpu");
+
+die "CFS not suppport" if ! -d $croot;
+
+our $MCPU_DIR     = File::Spec->catfile($croot, "cpu_manage");
+mkdir $MCPU_DIR if ! -d $MCPU_DIR;
+
+my $group           = File::Spec->catfile($MCPU_DIR, $pid);
+my $cpu_rate        = (defined $change_rate)    ?   $change_rate * 1000     :   $default_rate;
+my $type            = ($change_rate == 0)       ?   "unset"                 :   "change";
+
+$method_map->{$type}->($pid, $group, $cpu_rate);
+
+exit 0;
+
+sub unset {
+
+    my ($pid, $group)   = @_;
+    my $root_task       = File::Spec->catfile($croot, "tasks");
+
+    system("echo $pid > $root_task");
+    rmdir $group;
+}
+
+sub change {
+
+    my ($pid, $group, $cpu_rate)   = @_;
+    my $tasks           = File::Spec->catfile($group, "tasks");
+    my $cfs_quota_us    = File::Spec->catfile($group, "cpu.cfs_quota_us");
+
+    mkdir $group if ! -d $group;
+    system("echo $pid > $tasks");
+    system("echo $cpu_rate > $cfs_quota_us");
+}
+
+__END__
+
+=head1 NAME
+
+change-cpu-rate - change cpu rate by CFS
+
+=head1 SYNOPSIS
+ 
+ change-cpu-rate -p pid -r rate
+
+    ex) ./change-cpu-rate -p 5229 -r 20
+
+ Options:
+    -pid -p                         set pid
+    -rate -r                        set cpu rate(%) (0 is to unset cpu rate)
+    -help -h                        brief help message
+    -version -v                     brief version
+
+=head1 AUTHOR
+
+MATSUMOTO Ryosuke
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+

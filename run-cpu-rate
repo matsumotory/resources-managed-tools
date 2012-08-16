@@ -71,13 +71,13 @@ __END__
 
 =head1 NAME
 
-managecpu - managed cpu rate by CFS
+set-cpu-rate - set cpu rate by CFS
 
 =head1 SYNOPSIS
  
- managecpu.pl command
+ set-cpu-rate command
 
-    ex) ./managecpu.pl sh while.sh
+    ex) ./set-cpu-rate sh while.sh
 
  Options:
     -help -h                       brief help message
