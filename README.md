@@ -15,8 +15,8 @@ Perl tool for managed cpu by CFS
 - Change $cpu_rate in mangecpu.pl source
 
     ```perl
-    19
-    20 my $cpu_rate     = 50000;
-    21 my $croot        = File::Spec->catfile("/sys", "fs", "cgroup", "cpu");
-    22
+     20 # change cpu rate if you want
+     21 my $cpu_rate     = 50000;
+     22 my $croot        = File::Spec->catfile("/sys", "fs", "cgroup", "cpu");
+     23
     ```

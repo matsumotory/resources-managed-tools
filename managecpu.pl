@@ -17,6 +17,7 @@ GetOptions (
 $version and do { print "managecpu.pl: $VERSION\n"; exit 0 };
 pod2usage(1) if $help;
 
+# change cpu rate if you want
 my $cpu_rate     = 50000;
 my $croot        = File::Spec->catfile("/sys", "fs", "cgroup", "cpu");
 
@@ -29,7 +30,6 @@ my $command      = join " ", @ARGV;
 die "argv not found" if $command eq "";
 
 our $MCPU_DIR     = File::Spec->catfile($croot, "cpu_manage");
-
 mkdir $MCPU_DIR if ! -d $MCPU_DIR;
 
 $SIG{INT} = $SIG{TERM} = sub { emergency($fork, $pid) };
@@ -58,7 +58,6 @@ exit 0;
 
 sub cleanup {
     my $pid = shift;
-    print File::Spec->catfile($MCPU_DIR, $pid);
     rmdir File::Spec->catfile($MCPU_DIR, $pid);
     exit 0;
 }
