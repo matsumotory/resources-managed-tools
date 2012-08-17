@@ -26,7 +26,7 @@ my $method_map = {
 $version and do { print "change-write-device-rate: $VERSION\n"; exit 0 };
 pod2usage(1) if $help;
 die "set pid and rate and device not found." if !defined $change_rate || !defined $pid || !defined $dev;
-die "device not found." if ! -f $dev;
+die "device not found." if ! -b $dev;
 
 # default rate 100 MByte / sec
 my $mbps            = 1024 * 1024;
@@ -65,6 +65,7 @@ sub change {
     $major =~ s/,//;
 
     mkdir $group if ! -d $group;
+    #print "echo '$major:$minor $rate' > $write_bps_device";
     cleanup($group) if system("echo $pid > $tasks");
     cleanup($group) if system("echo '$major:$minor $rate' > $write_bps_device");
 }
