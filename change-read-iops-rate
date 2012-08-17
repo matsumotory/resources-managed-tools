@@ -1,0 +1,107 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use File::Spec;
+use Getopt::Long;
+use Pod::Usage;
+
+our $VERSION = "0.0.1";
+
+GetOptions (
+    'h|help'    => \my $help,
+    'v|version' => \my $version,
+    'r|rate=s'  => \my $change_rate,
+    'p|pid=s'   => \my $pid,
+    'd|dev=s'   => \my $dev,
+) or pod2usage(2);
+
+my $method_map = {
+
+    unset   => \&unset,
+    change  => \&change,
+
+};
+
+$version and do { print "change-read-iops-rate: $VERSION\n"; exit 0 };
+pod2usage(1) if $help;
+die "set pid and rate and device not found." if !defined $change_rate || !defined $pid || !defined $dev;
+die "device not found." if ! -b $dev;
+
+# default rate 10000 iops
+my $default_rate    = 10000;
+
+our $CROOT        = File::Spec->catfile("/sys", "fs", "cgroup", "blkio");
+our $MIO_DIR     = File::Spec->catfile($CROOT, "io_manage");
+die "CFS not suppport" if ! -d $CROOT;
+
+mkdir $MIO_DIR if ! -d $MIO_DIR;
+
+my $group           = File::Spec->catfile($MIO_DIR, $pid);
+my $read_rate       = (defined $change_rate)    ?   $change_rate    :   $default_rate;
+my $type            = ($change_rate == 0)       ?   "unset"         :   "change";
+
+$SIG{INT} = $SIG{TERM} = sub { cleanup($group) };
+$method_map->{$type}->($pid, $group, $read_rate, $dev);
+
+exit 0;
+
+sub unset {
+
+    my ($pid, $group, $rate, $dev) = @_;
+    my $root_task  = File::Spec->catfile($CROOT, "tasks");
+
+    cleanup($group) if system("echo $pid > $root_task");
+    rmdir $group;
+}
+
+sub change {
+
+    my ($pid, $group, $rate, $dev) = @_;
+    my $tasks               = File::Spec->catfile($group, "tasks");
+    my $read_iops_device    = File::Spec->catfile($group, "blkio.throttle.read_iops_device");
+    my ($major, $minor)     = (split " ", `ls -l $dev`)[4,5];
+    $major =~ s/,//;
+
+    mkdir $group if ! -d $group;
+    #print "echo '$major:$minor $rate' > $read_iops_device";
+    cleanup($group) if system("echo $pid > $tasks");
+    cleanup($group) if system("echo '$major:$minor $rate' > $read_iops_device");
+}
+
+sub cleanup {
+    my $group = shift;
+    rmdir $group;
+    exit 1;
+}
+
+__END__
+
+=head1 NAME
+
+change-read-iops-rate - change read-iops rate by CFS
+
+=head1 SYNOPSIS
+ 
+ change-read-iops-rate -p pid -r rate -d dev
+
+    ex) ./change-read-iops-rate -p 5229 -r 20
+
+ Options:
+    -pid -p                         set pid
+    -rate -r                        set read-iops rate (0 is to unset read-iops rate)
+    -dev -d                         set target device
+    -help -h                        brief help message
+    -version -v                     brief version
+
+=head1 AUTHOR
+
+MATSUMOTO Ryosuke
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
