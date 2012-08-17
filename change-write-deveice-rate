@@ -1,0 +1,107 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use File::Spec;
+use Getopt::Long;
+use Pod::Usage;
+
+our $VERSION = "0.0.1";
+
+GetOptions (
+    'h|help'    => \my $help,
+    'v|version' => \my $version,
+    'r|rate=s'  => \my $change_rate,
+    'p|pid=s'   => \my $pid,
+    'd|dev=s'   => \my $dev,
+) or pod2usage(2);
+
+my $method_map = {
+
+    unset   => \&unset,
+    change  => \&change,
+
+};
+
+$version and do { print "change-write-device-rate: $VERSION\n"; exit 0 };
+pod2usage(1) if $help;
+die "set pid and rate and device not found." if !defined $change_rate || !defined $pid || !defined $dev;
+die "device not found." if ! -f $dev;
+
+# default rate 100 MByte / sec
+my $mbps            = 1024 * 1024;
+my $default_rate    = 100 * $mbps;
+
+our $CROOT        = File::Spec->catfile("/sys", "fs", "cgroup", "blkio");
+our $MIO_DIR     = File::Spec->catfile($CROOT, "io_manage");
+die "CFS not suppport" if ! -d $CROOT;
+
+mkdir $MIO_DIR if ! -d $MIO_DIR;
+
+my $group           = File::Spec->catfile($MIO_DIR, $pid);
+my $write_rate      = (defined $change_rate)    ?   $change_rate * $mbps    :   $default_rate;
+my $type            = ($change_rate == 0)       ?   "unset"                 :   "change";
+
+$SIG{INT} = $SIG{TERM} = sub { cleanup($group) };
+$method_map->{$type}->($pid, $group, $write_rate, $dev);
+
+exit 0;
+
+sub unset {
+
+    my ($pid, $group, $rate, $dev) = @_;
+    my $root_task  = File::Spec->catfile($CROOT, "tasks");
+
+    cleanup($group) if system("echo $pid > $root_task");
+    rmdir $group;
+}
+
+sub change {
+
+    my ($pid, $group, $rate, $dev) = @_;
+    my $tasks               = File::Spec->catfile($group, "tasks");
+    my $write_bps_device    = File::Spec->catfile($group, "blkio.throttle.write_bps_device");
+    my ($major, $minor)     = (split " ", `ls -l $dev`)[4,5];
+    $major =~ s/,//;
+
+    mkdir $group if ! -d $group;
+    cleanup($group) if system("echo $pid > $tasks");
+    cleanup($group) if system("echo '$major:$minor $rate' > $write_bps_device");
+}
+
+sub cleanup {
+    my $group = shift;
+    rmdir $group;
+    exit 1;
+}
+
+__END__
+
+=head1 NAME
+
+change-write-device-rate - change write-device rate by CFS
+
+=head1 SYNOPSIS
+ 
+ change-write-device-rate -p pid -r rate -d dev
+
+    ex) ./change-write-device-rate -p 5229 -r 20
+
+ Options:
+    -pid -p                         set pid
+    -rate -r                        set write-device rate(%) (0 is to unset write-device rate)
+    -dev -d                         set target device
+    -help -h                        brief help message
+    -version -v                     brief version
+
+=head1 AUTHOR
+
+MATSUMOTO Ryosuke
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
